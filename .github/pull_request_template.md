@@ -6,4 +6,4 @@
 
 ## Checklist
 - [ ] No secrets, API keys, tokens or real hostnames in the diff
-- [ ] Guardrails unchanged (read-only discovery, dry-run plans, named approver), or the change is explained above
+- [ ] Guardrails unchanged (read-only discovery, dry-run plans, only authorized approvers can start a migration), or the change is explained above

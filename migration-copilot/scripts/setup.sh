@@ -37,7 +37,8 @@ if [[ "$DEMO" == false ]]; then
     -e "mtv_namespace=${MTV_NAMESPACE:-openshift-mtv}" \
     -e "source_provider=${MTV_SOURCE_PROVIDER:-vsphere}" \
     -e "destination_provider=host" \
-    -e "network_map=${MTV_NETWORK_MAP:?}" -e "storage_map=${MTV_STORAGE_MAP:?}"
+    -e "network_map=${MTV_NETWORK_MAP:?}" -e "storage_map=${MTV_STORAGE_MAP:?}" \
+    -e "approvers=${MIGRATION_APPROVERS:-Emmanuel Naweji}"
   APP_V=(-a vcenter); APP_O=(-a openshift)
 else
   APP_V=(); APP_O=()

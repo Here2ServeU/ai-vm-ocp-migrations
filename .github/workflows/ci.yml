@@ -77,8 +77,12 @@ jobs:
           import openshift_tools as o
           r = o.start_migration.fn(plan_name="p", approver_name="", approval_confirmed=True)
           assert r["started"] is False, r
-          r = o.start_migration.fn(plan_name="p", approver_name="Jane", approval_confirmed=False)
+          r = o.start_migration.fn(plan_name="p", approver_name="Emmanuel Naweji", approval_confirmed=False)
           assert r["started"] is False, r
+          r = o.start_migration.fn(plan_name="p", approver_name="Jane Smith", approval_confirmed=True)
+          assert r["started"] is False, r  # not an authorized approver
+          r = o.start_migration.fn(plan_name="p", approver_name="emmanuel  naweji", approval_confirmed=True)
+          assert r["started"] is True, r  # authorized; name match ignores case and spacing
           print("guardrail ok")
           PY
       - name: setup.sh syntax

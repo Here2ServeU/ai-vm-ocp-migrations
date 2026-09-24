@@ -119,7 +119,7 @@ It reads keys from `.env` automatically. Type `exit` to quit.
 **What it is:** The agent definition used by Orchestrate (and by `chat_local.py` for its instructions).
 - `llm:` sets which model to use. `setup.sh --llm` swaps this for you, so you don't edit it by hand.
 - `instructions:` sets the rules the AI must follow, such as "assess before planning",
-  "dry run first" and "never start a migration without a named approver".
+  "dry run first" and "only Emmanuel Naweji can approve a migration".
 - `tools:` lists which tools the agent may call.
 
 **How to use it:** Edit `instructions:` to change the Copilot's behavior or tone.
@@ -134,7 +134,7 @@ It reads keys from `.env` automatically. Type `exit` to quit.
 ### `tools/openshift_tools.py`
 **What it does:** Talks to OpenShift and MTV.
 - `create_migration_plan` drafts an MTV plan. It's a **dry run by default**, so nothing is saved.
-- `start_migration` starts a plan. It **refuses** unless `approval_confirmed=true` and a named approver are given. It writes an audit record.
+- `start_migration` starts a plan. It **refuses** unless `approval_confirmed=true` and the approver is on the authorized list (`AUTHORIZED_APPROVERS`, default **Emmanuel Naweji**). It writes an audit record, including refused attempts.
 - `migration_status` shows per-VM progress.
 - `list_openshift_vms` lists VMs already running on OpenShift.
 
@@ -219,7 +219,8 @@ A `No credentials found for connections 'vcenter'` line is normal. It means you'
    you> How ready is the finance cluster to move?
    you> Draft wave 1 with the lowest-risk VMs into the finance-prod project.
    you> Start it.                              ← it should ask who approves and for a ticket
-   you> Approved by Jane Smith, ticket CHG-1234.
+   you> Approved by Jane Smith, ticket CHG-1234.     ← refused: Jane isn't an authorized approver
+   you> Approved by Emmanuel Naweji, ticket CHG-1234.
    you> What's the status?                     ← ask a few times to watch progress
    ```
 
@@ -293,8 +294,11 @@ Only do this in a **test lab** first. Start with 5–10 throwaway VMs.
 ## Guardrails
 
 - Discovery is **read-only**. Plans are **dry runs** until you say otherwise.
-- `start_migration` refuses to run without `approval_confirmed=true` and a named approver.
-  The approver, time and change ticket are written onto the MTV Migration object and logged
+- **Only Emmanuel Naweji can approve a migration.** `start_migration` refuses to run without
+  `approval_confirmed=true` and an approver on the authorized list. To change the list, set
+  `MIGRATION_APPROVERS` in `.env` (comma-separated full names) and rerun `setup.sh`, or edit
+  `AUTHORIZED_APPROVERS` in `tools/openshift_tools.py`. Refused attempts are logged as
+  `AUDIT migration_rejected`. The approver, time and change ticket are written onto the MTV Migration object and logged
   as an `AUDIT` line. Send tool logs to your SIEM.
 - Credentials (vCenter, OpenShift, Anthropic, OpenAI) live in Orchestrate connections or
   your local `.env`, **never in code**.
@@ -332,7 +336,7 @@ documentation. These rules are a starting point, not a certification.
 | `setup.sh: set VCENTER_URL` | You left out `--demo` but didn't fill in lab settings. Add `--demo`, or run `set -a; source .env; set +a` |
 | `Permission denied: ./scripts/setup.sh` | `chmod +x scripts/setup.sh` |
 | Orchestrate server won't start | Check Docker is running and has at least 16 GB RAM |
-| Agent won't start a migration | Working as designed. Give it an approver name and say you approve |
+| Agent won't start a migration | Working as designed. Emmanuel Naweji (or someone in `MIGRATION_APPROVERS`) must approve by name |
 
 ---
 

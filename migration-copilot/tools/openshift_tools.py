@@ -3,7 +3,7 @@ Migration Copilot - OpenShift + Migration Toolkit for Virtualization (MTV) tools
 
 Tools:
   create_migration_plan  -> drafts an MTV Plan (dry run by default, nothing changes)
-  start_migration        -> starts a Plan ONLY with a named human approver (audited)
+  start_migration        -> starts a Plan ONLY when an authorized approver says yes (audited)
   migration_status       -> progress of a Plan, in plain terms
   list_openshift_vms     -> VMs already running on OpenShift Virtualization
 
@@ -16,6 +16,8 @@ Credentials come from a watsonx Orchestrate key-value connection, app_id "opensh
   destination_provider  default: host
   network_map           MTV NetworkMap name
   storage_map           MTV StorageMap name
+  approvers             optional comma-separated names allowed to approve migrations
+                        (default: AUTHORIZED_APPROVERS below)
 If no connection is found, the tools run in DEMO MODE and change nothing.
 """
 
@@ -35,6 +37,9 @@ log = logging.getLogger("copilot.openshift")
 APP_ID = "openshift"
 CREDS = [ExpectedCredentials(app_id=APP_ID, type=ConnectionType.KEY_VALUE)]
 GROUP, VERSION = "forklift.konveyor.io", "v1beta1"
+
+# Only these people may approve a migration. Override with the "approvers" connection key.
+AUTHORIZED_APPROVERS = ("Emmanuel Naweji",)
 
 _DEMO_RUNS: dict = {}  # demo mode only: plan name -> simulated progress
 
@@ -99,6 +104,15 @@ def _plan_body(s: Optional[dict], name: str, vm_ids: List[str], target_ns: str, 
     }
 
 
+def _approvers(s: Optional[dict]) -> List[str]:
+    names = (s or {}).get("approvers", "")
+    return [n.strip() for n in names.split(",") if n.strip()] or list(AUTHORIZED_APPROVERS)
+
+
+def _same_name(a: str, b: str) -> bool:
+    return " ".join(a.split()).casefold() == " ".join(b.split()).casefold()
+
+
 def _audit(event: str, **fields):
     """Structured audit line. Ship tool logs to your SIEM for a durable record."""
     log.warning("AUDIT %s %s", event, {"at": dt.datetime.now(dt.UTC).isoformat(), **fields})
@@ -147,25 +161,36 @@ def start_migration(
     plan_name: str, approver_name: str, approval_confirmed: bool, change_ticket: Optional[str] = None
 ) -> dict:
     """
-    Start an MTV migration plan. Only call this after a named human has reviewed the plan
-    and explicitly approved it in the conversation.
+    Start an MTV migration plan. Only call this after an authorized approver has reviewed
+    the plan and explicitly approved it in the conversation.
 
     :param plan_name: The saved plan to run.
-    :param approver_name: Full name of the person who approved this migration.
+    :param approver_name: Full name of the person who approved this migration. Must be an
+                          authorized approver, for example "Emmanuel Naweji".
     :param approval_confirmed: Must be true, meaning the approver explicitly said yes.
     :param change_ticket: Optional change or ticket number for the audit record.
     :returns: Whether the migration started, plus the audit details recorded.
     """
+    s = _settings()
+    allowed = _approvers(s)
     if not approval_confirmed or not approver_name.strip():
         return {
             "started": False,
             "reason": "A named approver must explicitly approve before a migration starts.",
+            "authorized_approvers": allowed,
         }
-    s = _settings()
+    approver = next((a for a in allowed if _same_name(approver_name, a)), None)
+    if approver is None:
+        _audit("migration_rejected", plan=plan_name, approver=approver_name, reason="not authorized")
+        return {
+            "started": False,
+            "reason": f"{approver_name} is not authorized to approve migrations.",
+            "authorized_approvers": allowed,
+        }
     stamp = dt.datetime.now(dt.UTC).isoformat()
     audit = {
         "plan": plan_name,
-        "approved_by": approver_name,
+        "approved_by": approver,
         "change_ticket": change_ticket or "none",
         "approved_at": stamp,
     }
