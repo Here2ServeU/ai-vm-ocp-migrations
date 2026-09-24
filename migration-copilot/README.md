@@ -156,7 +156,9 @@ connections (credentials), your chosen AI model, both tool files and the agent.
 Leave out `--demo` only when you've filled in the vCenter and OpenShift values (Path D).
 
 ### `docs/architecture.svg`
-A diagram of how the chat, agent, tools, vCenter and OpenShift fit together. Open it in a browser.
+A diagram of how the chat, agent, tools, vCenter and OpenShift fit together, and where each
+AI model runs. watsonx.ai stays inside your agency boundary. Anthropic and OpenAI are reached
+through Orchestrate's AI gateway and run outside it. Open it in a browser.
 
 ---
 
@@ -303,6 +305,9 @@ Only do this in a **test lab** first. Start with 5–10 throwaway VMs.
 - Credentials (vCenter, OpenShift, Anthropic, OpenAI) live in Orchestrate connections or
   your local `.env`, **never in code**.
 - The OpenShift service account can only create MTV plans and migrations and read VMs.
+- **Choosing Anthropic or OpenAI sends data outside your boundary.** Prompts and tool results
+  (VM names, sizes, OS, plan details) go to that provider. Check your agency's data policy
+  first, or use watsonx.ai to keep everything in the boundary.
 - These rules are enforced in code, not only in the AI's instructions, so they hold whichever model you choose.
 
 ---
