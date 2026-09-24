@@ -1,0 +1,4 @@
+# CI and local lint/security tools. Pinned so results are repeatable; Dependabot bumps them.
+ruff==0.16.8
+yamllint==1.38.0
+pip-audit==2.10.1

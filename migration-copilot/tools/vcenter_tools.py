@@ -10,15 +10,16 @@ Credentials come from a watsonx Orchestrate connection with app_id "vcenter"
 If no connection is found, the tools run in DEMO MODE with sample data,
 so you can present safely without touching a real environment.
 """
+
 import logging
 import ssl
 from typing import Optional
 
-from ibm_watsonx_orchestrate.agent_builder.tools import tool, ToolPermission
 from ibm_watsonx_orchestrate.agent_builder.connections import (
     ConnectionType,
     ExpectedCredentials,
 )
+from ibm_watsonx_orchestrate.agent_builder.tools import ToolPermission, tool
 
 log = logging.getLogger("copilot.vcenter")
 APP_ID = "vcenter"
@@ -31,46 +32,129 @@ LARGE_MEM_GB = 128
 
 # Sample estate for demos. Replace freely; names are fictional.
 SAMPLE_VMS = [
-    {"id": "vm-101", "name": "fin-web-01", "cluster": "finance", "power_state": "poweredOn",
-     "guest_os": "Red Hat Enterprise Linux 9 (64-bit)", "cpus": 2, "memory_gb": 8,
-     "disks": [{"size_gb": 60, "rdm": False, "shared": False}], "has_snapshots": False, "passthrough": False},
-    {"id": "vm-102", "name": "fin-web-02", "cluster": "finance", "power_state": "poweredOn",
-     "guest_os": "Red Hat Enterprise Linux 9 (64-bit)", "cpus": 2, "memory_gb": 8,
-     "disks": [{"size_gb": 60, "rdm": False, "shared": False}], "has_snapshots": True, "passthrough": False},
-    {"id": "vm-103", "name": "fin-app-01", "cluster": "finance", "power_state": "poweredOn",
-     "guest_os": "Microsoft Windows Server 2019 (64-bit)", "cpus": 4, "memory_gb": 16,
-     "disks": [{"size_gb": 120, "rdm": False, "shared": False}], "has_snapshots": False, "passthrough": False},
-    {"id": "vm-104", "name": "fin-db-01", "cluster": "finance", "power_state": "poweredOn",
-     "guest_os": "Red Hat Enterprise Linux 8 (64-bit)", "cpus": 16, "memory_gb": 128,
-     "disks": [{"size_gb": 200, "rdm": False, "shared": False},
-               {"size_gb": 2500, "rdm": True, "shared": False}], "has_snapshots": False, "passthrough": False},
-    {"id": "vm-105", "name": "hr-portal-01", "cluster": "hr", "power_state": "poweredOn",
-     "guest_os": "Microsoft Windows Server 2022 (64-bit)", "cpus": 4, "memory_gb": 16,
-     "disks": [{"size_gb": 100, "rdm": False, "shared": False}], "has_snapshots": False, "passthrough": False},
-    {"id": "vm-106", "name": "hr-legacy-01", "cluster": "hr", "power_state": "poweredOff",
-     "guest_os": "Microsoft Windows Server 2008 R2 (64-bit)", "cpus": 2, "memory_gb": 4,
-     "disks": [{"size_gb": 80, "rdm": False, "shared": False}], "has_snapshots": True, "passthrough": False},
-    {"id": "vm-107", "name": "ops-monitor-01", "cluster": "ops", "power_state": "poweredOn",
-     "guest_os": "Red Hat Enterprise Linux 9 (64-bit)", "cpus": 4, "memory_gb": 8,
-     "disks": [{"size_gb": 40, "rdm": False, "shared": False}], "has_snapshots": False, "passthrough": False},
-    {"id": "vm-108", "name": "ops-gpu-01", "cluster": "ops", "power_state": "poweredOn",
-     "guest_os": "Ubuntu Linux (64-bit)", "cpus": 8, "memory_gb": 64,
-     "disks": [{"size_gb": 500, "rdm": False, "shared": False}], "has_snapshots": False, "passthrough": True},
+    {
+        "id": "vm-101",
+        "name": "fin-web-01",
+        "cluster": "finance",
+        "power_state": "poweredOn",
+        "guest_os": "Red Hat Enterprise Linux 9 (64-bit)",
+        "cpus": 2,
+        "memory_gb": 8,
+        "disks": [{"size_gb": 60, "rdm": False, "shared": False}],
+        "has_snapshots": False,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-102",
+        "name": "fin-web-02",
+        "cluster": "finance",
+        "power_state": "poweredOn",
+        "guest_os": "Red Hat Enterprise Linux 9 (64-bit)",
+        "cpus": 2,
+        "memory_gb": 8,
+        "disks": [{"size_gb": 60, "rdm": False, "shared": False}],
+        "has_snapshots": True,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-103",
+        "name": "fin-app-01",
+        "cluster": "finance",
+        "power_state": "poweredOn",
+        "guest_os": "Microsoft Windows Server 2019 (64-bit)",
+        "cpus": 4,
+        "memory_gb": 16,
+        "disks": [{"size_gb": 120, "rdm": False, "shared": False}],
+        "has_snapshots": False,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-104",
+        "name": "fin-db-01",
+        "cluster": "finance",
+        "power_state": "poweredOn",
+        "guest_os": "Red Hat Enterprise Linux 8 (64-bit)",
+        "cpus": 16,
+        "memory_gb": 128,
+        "disks": [
+            {"size_gb": 200, "rdm": False, "shared": False},
+            {"size_gb": 2500, "rdm": True, "shared": False},
+        ],
+        "has_snapshots": False,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-105",
+        "name": "hr-portal-01",
+        "cluster": "hr",
+        "power_state": "poweredOn",
+        "guest_os": "Microsoft Windows Server 2022 (64-bit)",
+        "cpus": 4,
+        "memory_gb": 16,
+        "disks": [{"size_gb": 100, "rdm": False, "shared": False}],
+        "has_snapshots": False,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-106",
+        "name": "hr-legacy-01",
+        "cluster": "hr",
+        "power_state": "poweredOff",
+        "guest_os": "Microsoft Windows Server 2008 R2 (64-bit)",
+        "cpus": 2,
+        "memory_gb": 4,
+        "disks": [{"size_gb": 80, "rdm": False, "shared": False}],
+        "has_snapshots": True,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-107",
+        "name": "ops-monitor-01",
+        "cluster": "ops",
+        "power_state": "poweredOn",
+        "guest_os": "Red Hat Enterprise Linux 9 (64-bit)",
+        "cpus": 4,
+        "memory_gb": 8,
+        "disks": [{"size_gb": 40, "rdm": False, "shared": False}],
+        "has_snapshots": False,
+        "passthrough": False,
+    },
+    {
+        "id": "vm-108",
+        "name": "ops-gpu-01",
+        "cluster": "ops",
+        "power_state": "poweredOn",
+        "guest_os": "Ubuntu Linux (64-bit)",
+        "cpus": 8,
+        "memory_gb": 64,
+        "disks": [{"size_gb": 500, "rdm": False, "shared": False}],
+        "has_snapshots": False,
+        "passthrough": True,
+    },
 ]
 
 # Guest OS families that usually migrate cleanly. Always confirm against
 # Red Hat's current supported guest OS list for OpenShift Virtualization.
-LIKELY_SUPPORTED = ("red hat enterprise linux 8", "red hat enterprise linux 9",
-                    "windows server 2016", "windows server 2019", "windows server 2022",
-                    "windows server 2025", "ubuntu", "centos stream")
+LIKELY_SUPPORTED = (
+    "red hat enterprise linux 8",
+    "red hat enterprise linux 9",
+    "windows server 2016",
+    "windows server 2019",
+    "windows server 2022",
+    "windows server 2025",
+    "ubuntu",
+    "centos stream",
+)
 
 
 # ---------- helpers ----------
+
 
 def _vcenter_creds():
     """Return Orchestrate basic-auth credentials, or None for demo mode."""
     try:
         from ibm_watsonx_orchestrate.run import connections
+
         c = connections.basic_auth(APP_ID)
         if c and c.url and c.username:
             return c
@@ -81,7 +165,7 @@ def _vcenter_creds():
 
 def _live_vms(creds) -> list:
     """Read VMs from vCenter with pyVmomi. Read-only calls only."""
-    from pyVim.connect import SmartConnect, Disconnect
+    from pyVim.connect import Disconnect, SmartConnect
     from pyVmomi import vim
 
     host = creds.url.replace("https://", "").replace("http://", "").rstrip("/")
@@ -101,26 +185,30 @@ def _live_vms(creds) -> list:
             for dev in cfg.hardware.device:
                 if isinstance(dev, vim.vm.device.VirtualDisk):
                     b = dev.backing
-                    disks.append({
-                        "size_gb": round(dev.capacityInKB / 1024 / 1024, 1),
-                        "rdm": isinstance(b, vim.vm.device.VirtualDisk.RawDiskMappingVer1BackingInfo),
-                        "shared": getattr(b, "sharing", "") == "sharingMultiWriter",
-                    })
+                    disks.append(
+                        {
+                            "size_gb": round(dev.capacityInKB / 1024 / 1024, 1),
+                            "rdm": isinstance(b, vim.vm.device.VirtualDisk.RawDiskMappingVer1BackingInfo),
+                            "shared": getattr(b, "sharing", "") == "sharingMultiWriter",
+                        }
+                    )
                 if isinstance(dev, vim.vm.device.VirtualPCIPassthrough):
                     passthrough = True
             host_obj = vm.runtime.host
-            out.append({
-                "id": vm._moId,
-                "name": vm.name,
-                "cluster": host_obj.parent.name if host_obj else "unknown",
-                "power_state": str(vm.runtime.powerState),
-                "guest_os": cfg.guestFullName or "unknown",
-                "cpus": cfg.hardware.numCPU,
-                "memory_gb": round(cfg.hardware.memoryMB / 1024, 1),
-                "disks": disks,
-                "has_snapshots": vm.snapshot is not None,
-                "passthrough": passthrough,
-            })
+            out.append(
+                {
+                    "id": vm._moId,
+                    "name": vm.name,
+                    "cluster": host_obj.parent.name if host_obj else "unknown",
+                    "power_state": str(vm.runtime.powerState),
+                    "guest_os": cfg.guestFullName or "unknown",
+                    "cpus": cfg.hardware.numCPU,
+                    "memory_gb": round(cfg.hardware.memoryMB / 1024, 1),
+                    "disks": disks,
+                    "has_snapshots": vm.snapshot is not None,
+                    "passthrough": passthrough,
+                }
+            )
         view.Destroy()
         return out
     finally:
@@ -159,8 +247,14 @@ def assess(vm: dict) -> dict:
         readiness = "Ready"
 
     risk = min(100, 25 * len(blockers) + 10 * len(prep))
-    return {**vm, "total_disk_gb": total_disk, "readiness": readiness,
-            "risk_score": risk, "blockers": blockers, "prep_steps": prep}
+    return {
+        **vm,
+        "total_disk_gb": total_disk,
+        "readiness": readiness,
+        "risk_score": risk,
+        "blockers": blockers,
+        "prep_steps": prep,
+    }
 
 
 def load_assessed(cluster: Optional[str] = None) -> tuple:
@@ -172,6 +266,7 @@ def load_assessed(cluster: Optional[str] = None) -> tuple:
 
 
 # ---------- tools the agent can call ----------
+
 
 @tool(permission=ToolPermission.READ_ONLY, expected_credentials=CREDS)
 def discover_vms(cluster: Optional[str] = None, readiness: Optional[str] = None) -> dict:

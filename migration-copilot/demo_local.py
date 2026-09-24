@@ -1,10 +1,13 @@
 """Rehearse the demo on your laptop, no Orchestrate or clusters needed.
 Run:  python demo_local.py
 """
-import json, sys
+
+import json
+import sys
+
 sys.path.insert(0, "tools")
+import openshift_tools as ocp  # noqa: E402
 from vcenter_tools import load_assessed  # noqa: E402
-import openshift_tools as ocp            # noqa: E402
 
 vms, mode = load_assessed("finance")
 print(f"[{mode} mode] finance cluster\n")

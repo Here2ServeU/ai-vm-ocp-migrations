@@ -37,10 +37,11 @@ if [[ "$DEMO" == false ]]; then
     -e "mtv_namespace=${MTV_NAMESPACE:-openshift-mtv}" \
     -e "source_provider=${MTV_SOURCE_PROVIDER:-vsphere}" \
     -e "destination_provider=host" \
-    -e "network_map=${MTV_NETWORK_MAP:?}" -e "storage_map=${MTV_STORAGE_MAP:?}"
-  APP_V="-a vcenter"; APP_O="-a openshift"
+    -e "network_map=${MTV_NETWORK_MAP:?}" -e "storage_map=${MTV_STORAGE_MAP:?}" \
+    -e "approvers=${MIGRATION_APPROVERS:-Emmanuel Naweji}"
+  APP_V=(-a vcenter); APP_O=(-a openshift)
 else
-  APP_V=""; APP_O=""
+  APP_V=(); APP_O=()
 fi
 
 # Register an external model (Anthropic or OpenAI) with Orchestrate's AI gateway.
@@ -61,13 +62,13 @@ case "$LLM" in
   *) echo "--llm must be watsonx, anthropic or openai (got: $LLM)" >&2; exit 1 ;;
 esac
 
-orchestrate tools import -k python -f tools/vcenter_tools.py   -r requirements.txt $APP_V
-orchestrate tools import -k python -f tools/openshift_tools.py -r requirements.txt $APP_O
+orchestrate tools import -k python -f tools/vcenter_tools.py   -r requirements.txt ${APP_V[@]+"${APP_V[@]}"}
+orchestrate tools import -k python -f tools/openshift_tools.py -r requirements.txt ${APP_O[@]+"${APP_O[@]}"}
 
 AGENT_FILE=agents/migration_copilot.yaml
 if [[ -n "$AGENT_LLM" ]]; then
   # Import a copy with the llm: line swapped, so the checked-in file stays unchanged.
-  TMP_AGENT="$(mktemp -t migration_copilot).yaml"
+  TMP_AGENT="$(mktemp -d)/migration_copilot.yaml"
   sed "s|^llm:.*|llm: $AGENT_LLM|" "$AGENT_FILE" > "$TMP_AGENT"
   AGENT_FILE="$TMP_AGENT"
 fi

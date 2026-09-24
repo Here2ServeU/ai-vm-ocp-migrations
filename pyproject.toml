@@ -1,0 +1,14 @@
+# Lint and format settings used by CI (.github/workflows/ci.yml) and locally:
+#   ruff check . && ruff format --check .
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W style, F pyflakes, I imports, B bugbear, S bandit security, UP modern syntax
+select = ["E", "F", "W", "I", "B", "S", "UP"]
+# Keep typing.Optional/List: Orchestrate builds tool schemas from these annotations.
+ignore = ["UP006", "UP007", "UP035", "UP045"]
+
+[tool.ruff.lint.isort]
+known-local-folder = ["vcenter_tools", "openshift_tools"]
