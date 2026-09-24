@@ -1,0 +1,49 @@
+# Least-privilege service account for the Copilot.
+# It can read and create MTV plans/migrations and read VMs. Nothing else.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: migration-copilot
+  namespace: openshift-mtv
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: migration-copilot
+  namespace: openshift-mtv
+rules:
+  - apiGroups: ["forklift.konveyor.io"]
+    resources: ["plans", "migrations"]
+    verbs: ["get", "list", "watch", "create"]
+  - apiGroups: ["forklift.konveyor.io"]
+    resources: ["providers", "networkmaps", "storagemaps"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: migration-copilot
+  namespace: openshift-mtv
+subjects:
+  - kind: ServiceAccount
+    name: migration-copilot
+    namespace: openshift-mtv
+roleRef:
+  kind: Role
+  name: migration-copilot
+  apiGroup: rbac.authorization.k8s.io
+---
+# Read-only access to migrated VMs. Bind it in each target project:
+#   oc create rolebinding migration-copilot-view -n <project> \
+#     --clusterrole=migration-copilot-vm-viewer \
+#     --serviceaccount=openshift-mtv:migration-copilot
+# Short-lived token for the Orchestrate connection:
+#   oc create token migration-copilot -n openshift-mtv --duration=8h
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: migration-copilot-vm-viewer
+rules:
+  - apiGroups: ["kubevirt.io"]
+    resources: ["virtualmachines", "virtualmachineinstances"]
+    verbs: ["get", "list"]

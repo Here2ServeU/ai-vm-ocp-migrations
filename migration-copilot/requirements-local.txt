@@ -1,0 +1,5 @@
+# For running on your laptop (demo_local.py, chat_local.py). Not uploaded to Orchestrate.
+-r requirements.txt
+ibm-watsonx-orchestrate
+anthropic
+openai
