@@ -5,19 +5,33 @@ Run:  python chat_local.py --llm anthropic     (needs ANTHROPIC_API_KEY)
       python chat_local.py --llm openai        (needs OPENAI_API_KEY)
 Type "exit" to quit.
 """
-import argparse, json, logging, os, sys
+
+import argparse
+import json
+import logging
+import os
+import sys
+
 import yaml
 
 sys.path.insert(0, "tools")
 logging.disable(logging.ERROR)  # hide "no connection found" noise; demo mode is expected
-import vcenter_tools as vc      # noqa: E402
-import openshift_tools as ocp   # noqa: E402
+import openshift_tools as ocp  # noqa: E402
+import vcenter_tools as vc  # noqa: E402
 
 DEFAULT_MODELS = {"anthropic": "claude-sonnet-5", "openai": "gpt-4.1"}
 AGENT = yaml.safe_load(open("agents/migration_copilot.yaml"))
-TOOLS = {t.__tool_spec__.name: t for t in (
-    vc.discover_vms, vc.readiness_summary, ocp.create_migration_plan,
-    ocp.start_migration, ocp.migration_status, ocp.list_openshift_vms)}
+TOOLS = {
+    t.__tool_spec__.name: t
+    for t in (
+        vc.discover_vms,
+        vc.readiness_summary,
+        ocp.create_migration_plan,
+        ocp.start_migration,
+        ocp.migration_status,
+        ocp.list_openshift_vms,
+    )
+}
 
 
 def load_dotenv(path=".env"):
@@ -26,7 +40,7 @@ def load_dotenv(path=".env"):
         for line in open(path):
             key, sep, value = line.strip().partition("=")
             if sep and not key.startswith("#"):
-                os.environ.setdefault(key.strip(), value.strip().strip('"\''))
+                os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
 def _clean(schema):
@@ -54,6 +68,7 @@ def run_tool(name, args):
 
 def anthropic_chat(model):
     import anthropic
+
     client = anthropic.Anthropic()
     tools = [{"name": n, "description": d, "input_schema": s} for n, d, s in tool_specs()]
     messages = []
@@ -61,35 +76,54 @@ def anthropic_chat(model):
     def turn(user_text):
         messages.append({"role": "user", "content": user_text})
         while True:
-            resp = client.messages.create(model=model, max_tokens=4096, system=AGENT["instructions"],
-                                          tools=tools, messages=messages)
+            resp = client.messages.create(
+                model=model, max_tokens=4096, system=AGENT["instructions"], tools=tools, messages=messages
+            )
             messages.append({"role": "assistant", "content": resp.content})
             calls = [b for b in resp.content if b.type == "tool_use"]
             if not calls:
                 return "".join(b.text for b in resp.content if b.type == "text")
-            messages.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": c.id, "content": run_tool(c.name, c.input)}
-                for c in calls]})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "tool_result", "tool_use_id": c.id, "content": run_tool(c.name, c.input)}
+                        for c in calls
+                    ],
+                }
+            )
+
     return turn
 
 
 def openai_chat(model):
     import openai
+
     client = openai.OpenAI()
-    tools = [{"type": "function", "function": {"name": n, "description": d, "parameters": s}}
-             for n, d, s in tool_specs()]
+    tools = [
+        {"type": "function", "function": {"name": n, "description": d, "parameters": s}}
+        for n, d, s in tool_specs()
+    ]
     messages = [{"role": "system", "content": AGENT["instructions"]}]
 
     def turn(user_text):
         messages.append({"role": "user", "content": user_text})
         while True:
-            msg = client.chat.completions.create(model=model, messages=messages, tools=tools).choices[0].message
+            msg = (
+                client.chat.completions.create(model=model, messages=messages, tools=tools).choices[0].message
+            )
             messages.append(msg.model_dump(exclude_none=True))
             if not msg.tool_calls:
                 return msg.content or ""
             for c in msg.tool_calls:
-                messages.append({"role": "tool", "tool_call_id": c.id,
-                                 "content": run_tool(c.function.name, json.loads(c.function.arguments or "{}"))})
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": c.id,
+                        "content": run_tool(c.function.name, json.loads(c.function.arguments or "{}")),
+                    }
+                )
+
     return turn
 
 
@@ -97,7 +131,9 @@ def main():
     load_dotenv()
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--llm", choices=["anthropic", "openai"], default=os.getenv("LLM_PROVIDER", "anthropic"))
-    p.add_argument("--model", help="Model name. Defaults: " + ", ".join(f"{k}={v}" for k, v in DEFAULT_MODELS.items()))
+    p.add_argument(
+        "--model", help="Model name. Defaults: " + ", ".join(f"{k}={v}" for k, v in DEFAULT_MODELS.items())
+    )
     a = p.parse_args()
 
     key_var = f"{a.llm.upper()}_API_KEY"
