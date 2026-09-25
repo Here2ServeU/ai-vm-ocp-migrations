@@ -194,7 +194,7 @@ VM            Readiness          Risk  Notes
 fin-web-01    Ready                 0  -
 fin-app-01    Ready                 0  -
 fin-web-02    Ready with prep      10  Remove or consolidate snapshots before migrating
-fin-db-01     Blocked              45  Uses a raw device mapping (RDM) disk; ...
+fin-db-01     Blocked              35  Uses a raw device mapping (RDM) disk; ...
 ```
 
 A `No credentials found for connections 'vcenter'` line is normal. It means you're in demo mode.
@@ -234,8 +234,10 @@ Each question costs a small amount on your Anthropic or OpenAI account.
 
 This is the "real" home for the agent, with a web chat UI and credentials stored safely.
 
-**You need:** Docker (via Rancher Desktop or Colima), about **16 GB RAM and 8 CPU cores** free,
-and your watsonx Orchestrate entitlement settings in `.env`. See IBM's ADK docs for those values.
+**You need:** about **16 GB RAM, 8 CPU cores and 100 GB disk** free, and your IBM credentials in the
+`WO_...` lines at the top of `.env` (see the comments there). You don't need to install
+Docker yourself: Orchestrate sets up its own small virtual machine on first start.
+The root [README](../README.md#stage-4-run-it-in-watsonx-orchestrate) walks through getting the credentials.
 
 ```bash
 set -a; source .env; set +a              # load your settings into this terminal
@@ -340,7 +342,7 @@ documentation. These rules are a starting point, not a certification.
 | `No credentials found for connections 'vcenter'` | Normal in demo mode |
 | `setup.sh: set VCENTER_URL` | You left out `--demo` but didn't fill in lab settings. Add `--demo`, or run `set -a; source .env; set +a` |
 | `Permission denied: ./scripts/setup.sh` | `chmod +x scripts/setup.sh` |
-| Orchestrate server won't start | Check Docker is running and has at least 16 GB RAM |
+| Orchestrate server won't start | Check the `WO_...` lines in `.env`, and that you have at least 16 GB RAM free. Run `orchestrate server logs` for details |
 | Agent won't start a migration | Working as designed. Emmanuel Naweji (or someone in `MIGRATION_APPROVERS`) must approve by name |
 
 ---
