@@ -35,7 +35,7 @@ jobs:
       - name: Python formatting
         run: ruff format --check .
       - name: Shell scripts (shellcheck)
-        run: shellcheck migration-copilot/scripts/*.sh
+        run: shellcheck scripts/*.sh
       - name: YAML (agents, OpenShift manifests, workflows)
         run: yamllint --strict .
 
@@ -47,9 +47,6 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.11", "3.13"]
-    defaults:
-      run:
-        working-directory: migration-copilot
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
@@ -58,7 +55,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-          cache-dependency-path: migration-copilot/requirements*.txt
+          cache-dependency-path: requirements*.txt
       - run: pip install -r requirements-local.txt
       - name: Demo runs end to end (demo mode, no credentials)
         run: python demo_local.py
@@ -104,7 +101,7 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - name: Known vulnerabilities in Python dependencies (pip-audit)
-        run: pip-audit -r migration-copilot/requirements-local.txt -r requirements-dev.txt
+        run: pip-audit -r requirements-local.txt -r requirements-dev.txt
       - name: Leaked secrets (gitleaks)
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e  # v3.0.0
         env:

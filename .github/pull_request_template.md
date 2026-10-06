@@ -1,7 +1,7 @@
 ## What changed and why
 
 ## How I tested it
-- [ ] `python migration-copilot/demo_local.py` still works
+- [ ] `python demo_local.py` still works
 - [ ] `ruff check . && ruff format --check .` passes
 
 ## Checklist

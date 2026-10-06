@@ -61,8 +61,9 @@ You can use one of three AI "brains":
 ## What each file is
 
 ```
-migration-copilot/
-├── README.md                 ← this runbook
+ai-vm-ocp-migrations/
+├── README.md                 ← beginner step-by-step guide
+├── RUNBOOK.md                ← this runbook
 ├── .env.example              ← template for your settings and secrets
 ├── requirements.txt          ← Python libraries the tools need (uploaded to Orchestrate)
 ├── requirements-local.txt    ← extra libraries for running on your laptop
@@ -77,8 +78,7 @@ migration-copilot/
 │   └── rbac.yaml             ← locked-down OpenShift account for the Copilot
 ├── scripts/
 │   └── setup.sh              ← one command to load everything into Orchestrate
-└── docs/
-    └── architecture.svg      ← diagram of how the pieces connect
+└── architecture.svg          ← diagram of how the pieces connect
 ```
 
 ### `.env.example`
@@ -155,7 +155,7 @@ connections (credentials), your chosen AI model, both tool files and the agent.
 ```
 Leave out `--demo` only when you've filled in the vCenter and OpenShift values (Path D).
 
-### `docs/architecture.svg`
+### `architecture.svg`
 A diagram of how the chat, agent, tools, vCenter and OpenShift fit together, and where each
 AI model runs. watsonx.ai stays inside your agency boundary. Anthropic and OpenAI are reached
 through Orchestrate's AI gateway and run outside it. Open it in a browser.
@@ -167,7 +167,7 @@ through Orchestrate's AI gateway and run outside it. Open it in a browser.
 You need **Python 3.11 or newer** (check with `python3 --version`).
 
 ```bash
-cd migration-copilot
+cd ai-vm-ocp-migrations
 python3 -m venv venv                 # create an isolated Python environment
 source venv/bin/activate             # turn it on (Windows: venv\Scripts\activate)
 pip install -r requirements-local.txt

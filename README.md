@@ -44,7 +44,7 @@ before moving on.
 - [What's in this repository](#whats-in-this-repository)
 
 **New words?** VM, MTV, wave, API key and the other terms are explained in the
-[glossary](migration-copilot/README.md#words-youll-see).
+[glossary](RUNBOOK.md#words-youll-see).
 
 ---
 
@@ -101,7 +101,7 @@ and edit files more easily.
 ```bash
 cd ~/Desktop                                         # where to put the project
 git clone https://github.com/Here2ServeU/ai-vm-ocp-migrations.git
-cd ai-vm-ocp-migrations/migration-copilot            # the Copilot lives in this folder
+cd ai-vm-ocp-migrations
 ```
 
 Now create a **virtual environment**, a private space for this project's Python libraries so
@@ -117,7 +117,7 @@ cp .env.example .env                                 # your personal settings fi
 > **Every time you open a new terminal**, go back into the project and turn the
 > environment on again:
 > ```bash
-> cd ~/Desktop/ai-vm-ocp-migrations/migration-copilot
+> cd ~/Desktop/ai-vm-ocp-migrations
 > source venv/bin/activate
 > ```
 > You'll see `(venv)` at the start of the line when it's on.
@@ -160,7 +160,7 @@ you're in demo mode.
 
 **What the readiness ratings mean:** *Ready* can move now. *Ready with prep* needs a small
 fix first. *Blocked* can't move as-is. *Retire candidate* is switched off, so ask its owner
-whether it's still needed. See the [readiness rules](migration-copilot/README.md#readiness-rules).
+whether it's still needed. See the [readiness rules](RUNBOOK.md#readiness-rules).
 
 ---
 
@@ -447,7 +447,7 @@ matters:
 | OpenShift tools suddenly fail with `401` | The 8-hour token expired. See the note in Stage 5.3 |
 | The Copilot won't start a migration | Working as designed. An authorized approver must approve by name |
 
-More fixes are in the [runbook's troubleshooting table](migration-copilot/README.md#troubleshooting).
+More fixes are in the [runbook's troubleshooting table](RUNBOOK.md#troubleshooting).
 
 ---
 
@@ -463,7 +463,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the same checks on your co
 
 | Path | What it is |
 | --- | --- |
-| [`migration-copilot/`](migration-copilot/) | The Copilot: agent, tools, scripts. Its [README](migration-copilot/README.md) explains every file |
+| [`RUNBOOK.md`](RUNBOOK.md) | Full runbook: explains every file, readiness rules, troubleshooting |
+| [`agents/`](agents/), [`tools/`](tools/) | The Copilot agent definition and its VMware and OpenShift tools |
+| [`openshift/`](openshift/), [`scripts/`](scripts/) | Locked-down OpenShift account and the Orchestrate setup script |
+| `demo_local.py`, `chat_local.py` | Run the demo or chat with the Copilot on your laptop |
+| `requirements.txt`, `requirements-local.txt`, `.env.example` | Python libraries and the settings template |
 | [`architecture.svg`](architecture.svg) | The diagram at the top of this page |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to propose changes |
 | [`.github/`](.github/) | Automatic checks (CI), dependency updates, code owners |

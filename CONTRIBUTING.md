@@ -17,8 +17,8 @@ pip install -r requirements-dev.txt
 ruff check . --fix         # lint + security rules, auto-fixes what it can
 ruff format .              # formats Python code
 yamllint --strict .        # YAML files
-shellcheck migration-copilot/scripts/*.sh
-pip-audit -r migration-copilot/requirements-local.txt -r requirements-dev.txt
+shellcheck scripts/*.sh
+pip-audit -r requirements-local.txt -r requirements-dev.txt
 ```
 
 ## What CI checks on every pull request
