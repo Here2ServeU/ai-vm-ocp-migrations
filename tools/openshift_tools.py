@@ -7,39 +7,45 @@ Tools:
   migration_status       -> progress of a Plan, in plain terms
   list_openshift_vms     -> VMs already running on OpenShift Virtualization
 
-Credentials come from a watsonx Orchestrate key-value connection, app_id "openshift":
-  api_url               https://api.<cluster>:6443
-  token                 service-account token (scoped RBAC, see README)
-  ca_cert               optional PEM of the API server CA
-  mtv_namespace         default: openshift-mtv
-  source_provider       MTV vSphere provider name
-  destination_provider  default: host
-  network_map           MTV NetworkMap name
-  storage_map           MTV StorageMap name
-  approvers             optional comma-separated names allowed to approve migrations
-                        (default: AUTHORIZED_APPROVERS below)
-If no connection is found, the tools run in DEMO MODE and change nothing.
+Settings come from environment variables (chat_local.py loads them from .env):
+  OCP_API_URL               https://api.<cluster>:6443
+  OCP_TOKEN                 service-account token (scoped RBAC, see README)
+  OCP_CA_CERT               optional path to a PEM file with the API server CA
+  MTV_NAMESPACE             default: openshift-mtv
+  MTV_SOURCE_PROVIDER       MTV vSphere provider name
+  MTV_DESTINATION_PROVIDER  default: host
+  MTV_NETWORK_MAP           MTV NetworkMap name
+  MTV_STORAGE_MAP           MTV StorageMap name
+  MIGRATION_APPROVERS       optional comma-separated names allowed to approve migrations
+                            (default: AUTHORIZED_APPROVERS below)
+If OCP_API_URL or OCP_TOKEN is not set, the tools run in DEMO MODE and change nothing.
 """
 
 import datetime as dt
 import logging
-import tempfile
+import os
 from typing import List, Optional
 
 import yaml
-from ibm_watsonx_orchestrate.agent_builder.connections import (
-    ConnectionType,
-    ExpectedCredentials,
-)
-from ibm_watsonx_orchestrate.agent_builder.tools import ToolPermission, tool
+from tool_spec import tool
 
 log = logging.getLogger("copilot.openshift")
-APP_ID = "openshift"
-CREDS = [ExpectedCredentials(app_id=APP_ID, type=ConnectionType.KEY_VALUE)]
 GROUP, VERSION = "forklift.konveyor.io", "v1beta1"
 
-# Only these people may approve a migration. Override with the "approvers" connection key.
+# Only these people may approve a migration. Override with MIGRATION_APPROVERS.
 AUTHORIZED_APPROVERS = ("Emmanuel Naweji",)
+
+# setting name -> environment variable
+ENV = {
+    "api_url": "OCP_API_URL",
+    "token": "OCP_TOKEN",
+    "ca_cert": "OCP_CA_CERT",
+    "mtv_namespace": "MTV_NAMESPACE",
+    "source_provider": "MTV_SOURCE_PROVIDER",
+    "destination_provider": "MTV_DESTINATION_PROVIDER",
+    "network_map": "MTV_NETWORK_MAP",
+    "storage_map": "MTV_STORAGE_MAP",
+}
 
 _DEMO_RUNS: dict = {}  # demo mode only: plan name -> simulated progress
 
@@ -48,14 +54,10 @@ _DEMO_RUNS: dict = {}  # demo mode only: plan name -> simulated progress
 
 
 def _settings() -> Optional[dict]:
-    try:
-        from ibm_watsonx_orchestrate.run import connections
-
-        kv = connections.key_value(APP_ID)
-        if kv and kv.get("api_url") and kv.get("token"):
-            return dict(kv)
-    except (Exception, SystemExit) as exc:  # no connection -> demo mode
-        log.info("openshift connection not available (%s); demo mode", exc)
+    s = {key: os.environ[var] for key, var in ENV.items() if os.getenv(var)}
+    if s.get("api_url") and s.get("token"):
+        return s
+    log.info("OCP_API_URL / OCP_TOKEN not set; demo mode")
     return None
 
 
@@ -66,10 +68,7 @@ def _api(s: dict):
     cfg.host = s["api_url"]
     cfg.api_key = {"authorization": "Bearer " + s["token"]}
     if s.get("ca_cert"):
-        f = tempfile.NamedTemporaryFile("w", suffix=".pem", delete=False)
-        f.write(s["ca_cert"])
-        f.close()
-        cfg.ssl_ca_cert = f.name
+        cfg.ssl_ca_cert = s["ca_cert"]
     return client.ApiClient(cfg)
 
 
@@ -104,8 +103,8 @@ def _plan_body(s: Optional[dict], name: str, vm_ids: List[str], target_ns: str, 
     }
 
 
-def _approvers(s: Optional[dict]) -> List[str]:
-    names = (s or {}).get("approvers", "")
+def _approvers() -> List[str]:
+    names = os.getenv("MIGRATION_APPROVERS", "")
     return [n.strip() for n in names.split(",") if n.strip()] or list(AUTHORIZED_APPROVERS)
 
 
@@ -121,7 +120,7 @@ def _audit(event: str, **fields):
 # ---------- tools ----------
 
 
-@tool(permission=ToolPermission.READ_WRITE, expected_credentials=CREDS)
+@tool
 def create_migration_plan(
     plan_name: str, vm_ids: List[str], target_namespace: str, warm: bool = False, dry_run: bool = True
 ) -> dict:
@@ -156,7 +155,7 @@ def create_migration_plan(
     }
 
 
-@tool(permission=ToolPermission.READ_WRITE, expected_credentials=CREDS)
+@tool
 def start_migration(
     plan_name: str, approver_name: str, approval_confirmed: bool, change_ticket: Optional[str] = None
 ) -> dict:
@@ -172,7 +171,7 @@ def start_migration(
     :returns: Whether the migration started, plus the audit details recorded.
     """
     s = _settings()
-    allowed = _approvers(s)
+    allowed = _approvers()
     if not approval_confirmed or not approver_name.strip():
         return {
             "started": False,
@@ -216,7 +215,7 @@ def start_migration(
     return {"started": True, "mode": "live" if s else "demo", "audit": audit}
 
 
-@tool(permission=ToolPermission.READ_ONLY, expected_credentials=CREDS)
+@tool
 def migration_status(plan_name: str) -> dict:
     """
     Show the progress of an MTV migration plan, per VM.
@@ -262,7 +261,7 @@ def migration_status(plan_name: str) -> dict:
     return {"mode": "live", "plan": plan_name, "state": state, "vms": vms}
 
 
-@tool(permission=ToolPermission.READ_ONLY, expected_credentials=CREDS)
+@tool
 def list_openshift_vms(namespace: str) -> dict:
     """
     List virtual machines running on OpenShift Virtualization in one project.

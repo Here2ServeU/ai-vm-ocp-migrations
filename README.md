@@ -5,13 +5,13 @@ An AI assistant that helps teams move virtual machines (VMs) from **VMware** to
 VMs, rates how ready each one is, drafts migration plans, and runs a migration only after
 an authorized person approves it.
 
-![Architecture: people use the Copilot agent in watsonx Orchestrate, which reads VMware, plans and runs migrations on OpenShift, and uses watsonx.ai, Anthropic or OpenAI as its model](architecture.svg)
+![Architecture: people use the Copilot agent, which reads VMware, plans and runs migrations on OpenShift, and uses Anthropic Claude or OpenAI GPT as its model](architecture.svg)
 
 **This page is a step-by-step guide for complete beginners.** You don't need to know
-Python, OpenShift or AI to start. Each stage ends with a ✅ checkpoint so you know it worked
+Python, OpenShift or AI to start. Each stage ends with a checkpoint so you know it worked
 before moving on.
 
-> **Safe by default.** Until you connect real systems (Stage 6), everything uses made-up
+> **Safe by default.** Until you connect real systems (Stage 5), everything uses made-up
 > sample VMs and changes nothing.
 
 ---
@@ -22,9 +22,8 @@ before moving on.
 | --- | --- | --- |
 | See what it does | 0 → 2 | 20 min |
 | Demo the AI conversation on your laptop | 0 → 3 | 30 min |
-| Run it the "real" way in watsonx Orchestrate | 0 → 4 | 1–2 hours |
-| Migrate real test VMs in a lab | 0 → 7 | 1–2 days, with help from your OpenShift and VMware admins |
-| Use it in production | All stages + Stage 8 checklist | Plan with your security team |
+| Migrate real test VMs in a lab | 0 → 6 | 1–2 days, with help from your OpenShift and VMware admins |
+| Use it in production | All stages + Stage 7 checklist | Plan with your security team |
 
 ---
 
@@ -34,11 +33,10 @@ before moving on.
 - [Stage 1: Get the code](#stage-1-get-the-code)
 - [Stage 2: See it work with sample data](#stage-2-see-it-work-with-sample-data)
 - [Stage 3: Chat with it using Claude or GPT](#stage-3-chat-with-it-using-claude-or-gpt)
-- [Stage 4: Run it in watsonx Orchestrate](#stage-4-run-it-in-watsonx-orchestrate)
-- [Stage 5: Prepare a test lab](#stage-5-prepare-a-test-lab)
-- [Stage 6: Connect the Copilot to the lab](#stage-6-connect-the-copilot-to-the-lab)
-- [Stage 7: Run your first real migration](#stage-7-run-your-first-real-migration)
-- [Stage 8: Checklist before production](#stage-8-checklist-before-production)
+- [Stage 4: Prepare a test lab](#stage-4-prepare-a-test-lab)
+- [Stage 5: Connect the Copilot to the lab](#stage-5-connect-the-copilot-to-the-lab)
+- [Stage 6: Run your first real migration](#stage-6-run-your-first-real-migration)
+- [Stage 7: Checklist before production](#stage-7-checklist-before-production)
 - [If something goes wrong](#if-something-goes-wrong)
 - [Making changes to this project](#making-changes-to-this-project)
 - [What's in this repository](#whats-in-this-repository)
@@ -82,7 +80,7 @@ The scripts in this project are written for Mac/Linux, so on Windows you run the
 sudo apt update && sudo apt install -y git python3 python3-venv python3-pip
 ```
 
-### ✅ Checkpoint
+### Checkpoint
 
 ```bash
 git --version        # shows something like: git version 2.45.0
@@ -110,7 +108,7 @@ they don't clash with anything else on your computer:
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -r requirements-local.txt                # takes a few minutes
+pip install -r requirements.txt                      # takes a few minutes
 cp .env.example .env                                 # your personal settings file
 ```
 
@@ -122,7 +120,7 @@ cp .env.example .env                                 # your personal settings fi
 > ```
 > You'll see `(venv)` at the start of the line when it's on.
 
-### ✅ Checkpoint
+### Checkpoint
 
 Your prompt starts with `(venv)`, and `ls` shows files such as `demo_local.py` and
 `chat_local.py`. Files starting with a dot are hidden, so use `ls -a` to see your new `.env`.
@@ -138,7 +136,7 @@ python demo_local.py
 This reads the made-up VMs in a sample "finance" cluster, rates each one, and prints the
 migration plan the Copilot would draft. It doesn't use AI and needs no accounts.
 
-### ✅ Checkpoint
+### Checkpoint
 
 You see a table and a plan like this:
 
@@ -154,9 +152,6 @@ fin-db-01     Blocked              35  Uses a raw device mapping (RDM) disk; ...
 Draft MTV plan (dry run):
 ...
 ```
-
-A line saying `No credentials found for connections 'vcenter'` is normal. It just means
-you're in demo mode.
 
 **What the readiness ratings mean:** *Ready* can move now. *Ready with prep* needs a small
 fix first. *Blocked* can't move as-is. *Retire candidate* is switched off, so ask its owner
@@ -189,7 +184,7 @@ or
 OPENAI_API_KEY=sk-...your key...
 ```
 
-> 🔒 **Treat API keys like passwords.** Never paste them into code, chat messages or
+> **Treat API keys like passwords.** Never paste them into code, chat messages or
 > emails. `.env` is set up so Git never uploads it.
 
 **2. Start the chat:**
@@ -211,7 +206,7 @@ you> What's the status?
 
 Type `exit` to quit.
 
-### ✅ Checkpoint
+### Checkpoint
 
 - The Copilot answers the readiness question with a table, and shows `[tool] ...` lines
   when it looks things up.
@@ -220,78 +215,20 @@ Type `exit` to quit.
   start a migration. This rule is enforced in code, so it holds whichever AI model you use.
 - Asking for status a few times shows progress climbing to 100%.
 
----
-
-## Stage 4: Run it in watsonx Orchestrate
-
-**watsonx Orchestrate** is IBM's platform for running AI agents. It gives the Copilot a web
-chat page and keeps credentials locked away safely. Here you run the free
-**Developer Edition** on your own computer, still with sample data.
-
-**You need:** about **16 GB of free memory, 8 CPU cores and 100 GB of free disk**.
-You don't need to install Docker; Orchestrate sets up its own small virtual machine.
-
-### 4.1 Get IBM credentials
-
-Orchestrate needs an IBM account to start, **even if the agent will use Claude or GPT**.
-Pick one option and fill in the matching lines at the top of `.env`:
-
-- **Option 1: watsonx Orchestrate account** (a free trial works). Sign up at
-  <https://www.ibm.com/products/watsonx-orchestrate>. In your Orchestrate instance, open
-  your profile menu → **Settings** → **API details**. Copy the **service instance URL**
-  into `WO_INSTANCE` and generate an **API key** for `WO_API_KEY`.
-- **Option 2: watsonx.ai.** Put your **entitlement key** from My IBM in
-  `WO_ENTITLEMENT_KEY`, and your watsonx.ai API key and deployment space ID in
-  `WATSONX_APIKEY` and `WATSONX_SPACE_ID`. Set `WO_DEVELOPER_EDITION_SOURCE=myibm`.
-
-The comments in `.env` show exactly which lines go with which option.
-
-### 4.2 Start Orchestrate and load the Copilot
-
-```bash
-set -a; source .env; set +a                      # load your settings into this terminal
-orchestrate server start -e .env                 # first start downloads a lot: 15–30 min
-orchestrate env activate local
-```
-
-The first time, it asks you to accept IBM's terms. Type `y` and press Enter.
-
-Next, choose which AI the agent uses. Pick **one** line:
-
-```bash
-./scripts/setup.sh --demo                        # IBM watsonx model
-./scripts/setup.sh --demo --llm anthropic        # Claude (uses ANTHROPIC_API_KEY)
-./scripts/setup.sh --demo --llm openai           # GPT (uses OPENAI_API_KEY)
-```
-
-Then open the chat:
-
-```bash
-orchestrate chat start                           # opens the chat page in your browser
-```
-
-> **Where does my data go?** With the IBM watsonx model, everything stays inside your
-> environment. With Claude or GPT, your questions and the Copilot's findings (VM names,
-> sizes, plans) are sent to Anthropic or OpenAI. The diagram at the top shows this.
-
-### ✅ Checkpoint
-
-The chat page opens, you can select **AI Migration Copilot**, and the Stage 3 conversation
-works the same way. Answers mention **demo mode**.
-
-When you're finished, `orchestrate server stop` frees up your computer's memory.
+> **Where does my data go?** Your questions and the Copilot's findings (VM names, sizes,
+> plans) are sent to Anthropic or OpenAI. The diagram at the top shows this.
 
 ---
 
-## Stage 5: Prepare a test lab
+## Stage 4: Prepare a test lab
 
 From here on you work with **real systems**. Use a **test lab**, never production, and pick
 **5–10 throwaway VMs** to practice on. You'll need help from:
 
-- **Your OpenShift admin** for Steps 5.1–5.3
-- **Your VMware admin** for Step 5.4
+- **Your OpenShift admin** for Steps 4.1–4.3
+- **Your VMware admin** for Step 4.4
 
-### 5.1 Install the OpenShift command-line tool (`oc`)
+### 4.1 Install the OpenShift command-line tool (`oc`)
 
 In the OpenShift web console, click the **?** icon (top right) → **Command Line Tools**,
 download `oc` for your computer, and put it on your PATH. Then log in:
@@ -301,7 +238,7 @@ oc login --server=https://api.your-cluster.example:6443      # your admin gives 
 oc whoami                                                    # shows your username if it worked
 ```
 
-### 5.2 Install the Migration Toolkit for Virtualization (MTV)
+### 4.2 Install the Migration Toolkit for Virtualization (MTV)
 
 MTV is the Red Hat add-on that actually copies VMs. In the OpenShift console:
 
@@ -317,7 +254,7 @@ MTV is the Red Hat add-on that actually copies VMs. In the OpenShift console:
 5. **Migration → StorageMaps for virtualization → Create.** Match each VMware datastore to an OpenShift
    storage class. **Write down the name.**
 
-### 5.3 Give the Copilot its own limited account
+### 4.3 Give the Copilot its own limited account
 
 The Copilot gets a service account that can **only** create MTV plans and migrations and
 read VMs. It can't delete anything.
@@ -331,24 +268,24 @@ oc create rolebinding migration-copilot-view -n finance-prod \
 oc create token migration-copilot -n openshift-mtv --duration=8h
 ```
 
-The last command prints a long **token**. Copy it; you'll need it in Stage 6.
+The last command prints a long **token**. Copy it; you'll need it in Stage 5.
 
-> ⏱ The token **expires after 8 hours**. When it does, the Copilot's OpenShift tools stop
-> working. Run the `oc create token` line again, update `.env`, and rerun `setup.sh`.
+> The token **expires after 8 hours**. When it does, the Copilot's OpenShift tools stop
+> working. Run the `oc create token` line again, update `.env`, and restart the chat.
 
-### 5.4 Get a read-only vCenter account
+### 4.4 Get a read-only vCenter account
 
 Ask your VMware admin for a vCenter user with the **Read-only** role. The Copilot only
 **reads** from vCenter, so it should never have more access than that.
 
-### ✅ Checkpoint
+### Checkpoint
 
 You have written down: the vCenter address, read-only username and password, the OpenShift
 API address, the token, and the MTV **provider**, **NetworkMap** and **StorageMap** names.
 
 ---
 
-## Stage 6: Connect the Copilot to the lab
+## Stage 5: Connect the Copilot to the lab
 
 **1. Fill in the lab section of `.env`:**
 
@@ -357,7 +294,7 @@ VCENTER_URL=https://vcenter.your-agency.example
 VCENTER_USER=svc-copilot-readonly@vsphere.local
 VCENTER_PASSWORD=...
 OCP_API_URL=https://api.your-cluster.example:6443
-OCP_TOKEN=...the token from Stage 5.3...
+OCP_TOKEN=...the token from Stage 4.3...
 MTV_SOURCE_PROVIDER=...provider name...
 MTV_NETWORK_MAP=...NetworkMap name...
 MTV_STORAGE_MAP=...StorageMap name...
@@ -367,27 +304,22 @@ MIGRATION_APPROVERS="Emmanuel Naweji"
 `MIGRATION_APPROVERS` lists who may approve migrations. To add people, separate full names
 with commas, for example `"Emmanuel Naweji, Ada Lovelace"`.
 
-**2. Load everything into Orchestrate.** This time leave out `--demo`:
+**2. Start the chat again:**
 
 ```bash
-set -a; source .env; set +a
-orchestrate server start -e .env                 # skip if it's already running
-orchestrate env activate local
-./scripts/setup.sh --llm anthropic               # or --llm openai, or leave --llm out for watsonx
-orchestrate chat start
+python chat_local.py --llm anthropic      # or: python chat_local.py --llm openai
 ```
 
-`setup.sh` stores the vCenter and OpenShift credentials inside Orchestrate
-**connections**, so they never appear in the code.
+The Copilot reads the lab settings from `.env`, so they never appear in the code.
 
-### ✅ Checkpoint
+### Checkpoint
 
 Ask *"List all VMs"*. You see **your real test VMs**, and the answer says **live** mode
 instead of demo mode.
 
 ---
 
-## Stage 7: Run your first real migration
+## Stage 6: Run your first real migration
 
 Pick **one or two small, unimportant test VMs**. The Copilot guides you through each step:
 
@@ -407,20 +339,20 @@ Pick **one or two small, unimportant test VMs**. The Copilot guides you through 
 **If something goes wrong:** the original VM is still in vCenter; MTV doesn't delete it.
 Power it back on in vCenter, then delete the migrated copy in OpenShift.
 
-### ✅ Checkpoint
+### Checkpoint
 
 Your test VM runs on OpenShift, and the migration record in OpenShift shows who approved it
 and when.
 
 ---
 
-## Stage 8: Checklist before production
+## Stage 7: Checklist before production
 
 Go through this with your security and operations teams before migrating anything that
 matters:
 
-- [ ] **AI provider approved.** If you use Anthropic or OpenAI, VM names, sizes and plans
-      leave your boundary. Get written approval, or use the IBM watsonx model.
+- [ ] **AI provider approved.** VM names, sizes and plans are sent to Anthropic or OpenAI,
+      outside your boundary. Get written approval first.
 - [ ] **Approvers set.** `MIGRATION_APPROVERS` lists only the people allowed to approve.
 - [ ] **Least-privilege accounts.** vCenter is read-only, and the OpenShift account uses
       `openshift/rbac.yaml` unchanged.
@@ -439,12 +371,10 @@ matters:
 | Problem | What to do |
 | --- | --- |
 | `command not found: python` | Use `python3`, or turn on the environment: `source venv/bin/activate` |
-| `ModuleNotFoundError` | Turn on the environment, then `pip install -r requirements-local.txt` |
+| `ModuleNotFoundError` | Turn on the environment, then `pip install -r requirements.txt` |
 | `ANTHROPIC_API_KEY is not set` | Check the key is in `.env` with no spaces around `=` |
 | `401` or "authentication" errors from the AI | The key is wrong or was revoked. Create a new one |
-| Orchestrate won't start | Check the `WO_...` lines in `.env` and that 16 GB of memory is free. `orchestrate server logs` shows details |
-| `Permission denied: ./scripts/setup.sh` | Run `chmod +x scripts/setup.sh` |
-| OpenShift tools suddenly fail with `401` | The 8-hour token expired. See the note in Stage 5.3 |
+| OpenShift tools suddenly fail with `401` | The 8-hour token expired. See the note in Stage 4.3 |
 | The Copilot won't start a migration | Working as designed. An authorized approver must approve by name |
 
 More fixes are in the [runbook's troubleshooting table](RUNBOOK.md#troubleshooting).
@@ -465,11 +395,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the same checks on your co
 | --- | --- |
 | [`RUNBOOK.md`](RUNBOOK.md) | Full runbook: explains every file, readiness rules, troubleshooting |
 | [`agents/`](agents/), [`tools/`](tools/) | The Copilot agent definition and its VMware and OpenShift tools |
-| [`openshift/`](openshift/), [`scripts/`](scripts/) | Locked-down OpenShift account and the Orchestrate setup script |
-| `demo_local.py`, `chat_local.py` | Run the demo or chat with the Copilot on your laptop |
-| `requirements.txt`, `requirements-local.txt`, `.env.example` | Python libraries and the settings template |
+| [`openshift/`](openshift/) | Locked-down OpenShift account for the Copilot |
+| `demo_local.py`, `chat_local.py` | Run the demo or chat with the Copilot |
+| `requirements.txt`, `.env.example` | Python libraries and the settings template |
 | [`architecture.svg`](architecture.svg) | The diagram at the top of this page |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | How to propose changes |
 | [`.github/`](.github/) | Automatic checks (CI), dependency updates, code owners |
 | `pyproject.toml`, `.yamllint.yml`, `requirements-dev.txt` | Settings for the automatic code checks |
-| `migration-copilot-starter.zip` | The original starter kit download |

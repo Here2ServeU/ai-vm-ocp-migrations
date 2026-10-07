@@ -17,15 +17,14 @@ pip install -r requirements-dev.txt
 ruff check . --fix         # lint + security rules, auto-fixes what it can
 ruff format .              # formats Python code
 yamllint --strict .        # YAML files
-shellcheck scripts/*.sh
-pip-audit -r requirements-local.txt -r requirements-dev.txt
+pip-audit -r requirements.txt -r requirements-dev.txt
 ```
 
 ## What CI checks on every pull request
 
 | Check | What it does |
 | --- | --- |
-| Lint | Ruff (style, bugs, security rules), formatting, shellcheck, yamllint |
+| Lint | Ruff (style, bugs, security rules), formatting, yamllint |
 | Test (Python 3.11 / 3.13) | Runs the demo, loads every tool, confirms the approval guardrail still blocks unapproved migrations |
 | Security | `pip-audit` for vulnerable packages, `gitleaks` for leaked secrets |
 | Dependency review | Blocks PRs that add vulnerable (moderate+) or GPL/AGPL-licensed dependencies |

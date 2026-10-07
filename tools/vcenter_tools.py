@@ -5,25 +5,20 @@ Tools:
   discover_vms       -> list VMs with size, OS and migration readiness
   readiness_summary  -> counts by readiness group, for leadership questions
 
-Credentials come from a watsonx Orchestrate connection with app_id "vcenter"
-(basic auth: url = vCenter host, username, password).
-If no connection is found, the tools run in DEMO MODE with sample data,
+Credentials come from environment variables (chat_local.py loads them from .env):
+VCENTER_URL, VCENTER_USER, VCENTER_PASSWORD and optionally VCENTER_CA_CERT (path to a
+PEM file with the vCenter CA). If they are not set, the tools run in DEMO MODE with sample data,
 so you can present safely without touching a real environment.
 """
 
 import logging
+import os
 import ssl
 from typing import Optional
 
-from ibm_watsonx_orchestrate.agent_builder.connections import (
-    ConnectionType,
-    ExpectedCredentials,
-)
-from ibm_watsonx_orchestrate.agent_builder.tools import ToolPermission, tool
+from tool_spec import tool
 
 log = logging.getLogger("copilot.vcenter")
-APP_ID = "vcenter"
-CREDS = [ExpectedCredentials(app_id=APP_ID, type=ConnectionType.BASIC_AUTH)]
 
 # Sizes above these values need extra planning time.
 LARGE_DISK_GB = 2048
@@ -150,16 +145,16 @@ LIKELY_SUPPORTED = (
 # ---------- helpers ----------
 
 
-def _vcenter_creds():
-    """Return Orchestrate basic-auth credentials, or None for demo mode."""
-    try:
-        from ibm_watsonx_orchestrate.run import connections
-
-        c = connections.basic_auth(APP_ID)
-        if c and c.url and c.username:
-            return c
-    except (Exception, SystemExit) as exc:  # no connection -> demo mode
-        log.info("vcenter connection not available (%s); using demo data", exc)
+def _vcenter_creds() -> Optional[dict]:
+    """Return vCenter credentials from the environment, or None for demo mode."""
+    if os.getenv("VCENTER_URL") and os.getenv("VCENTER_USER"):
+        return {
+            "url": os.environ["VCENTER_URL"],
+            "username": os.environ["VCENTER_USER"],
+            "password": os.getenv("VCENTER_PASSWORD", ""),
+            "ca_cert": os.getenv("VCENTER_CA_CERT"),
+        }
+    log.info("VCENTER_URL / VCENTER_USER not set; using demo data")
     return None
 
 
@@ -168,11 +163,11 @@ def _live_vms(creds) -> list:
     from pyVim.connect import Disconnect, SmartConnect
     from pyVmomi import vim
 
-    host = creds.url.replace("https://", "").replace("http://", "").rstrip("/")
+    host = creds["url"].replace("https://", "").replace("http://", "").rstrip("/")
     ctx = ssl.create_default_context()
-    if creds.server_cert:
-        ctx.load_verify_locations(cadata=creds.server_cert)
-    si = SmartConnect(host=host, user=creds.username, pwd=creds.password, sslContext=ctx)
+    if creds["ca_cert"]:
+        ctx.load_verify_locations(cafile=creds["ca_cert"])
+    si = SmartConnect(host=host, user=creds["username"], pwd=creds["password"], sslContext=ctx)
     try:
         content = si.RetrieveContent()
         view = content.viewManager.CreateContainerView(content.rootFolder, [vim.VirtualMachine], True)
@@ -268,7 +263,7 @@ def load_assessed(cluster: Optional[str] = None) -> tuple:
 # ---------- tools the agent can call ----------
 
 
-@tool(permission=ToolPermission.READ_ONLY, expected_credentials=CREDS)
+@tool
 def discover_vms(cluster: Optional[str] = None, readiness: Optional[str] = None) -> dict:
     """
     List VMware virtual machines with size, operating system and migration readiness
@@ -289,7 +284,7 @@ def discover_vms(cluster: Optional[str] = None, readiness: Optional[str] = None)
     return {"mode": mode, "count": len(vms), "vms": vms}
 
 
-@tool(permission=ToolPermission.READ_ONLY, expected_credentials=CREDS)
+@tool
 def readiness_summary(cluster: Optional[str] = None) -> dict:
     """
     Summarize how many VMs are ready to migrate to OpenShift Virtualization.

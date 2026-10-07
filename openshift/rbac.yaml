@@ -37,7 +37,7 @@ roleRef:
 #   oc create rolebinding migration-copilot-view -n <project> \
 #     --clusterrole=migration-copilot-vm-viewer \
 #     --serviceaccount=openshift-mtv:migration-copilot
-# Short-lived token for the Orchestrate connection:
+# Short-lived token for OCP_TOKEN in .env:
 #   oc create token migration-copilot -n openshift-mtv --duration=8h
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
