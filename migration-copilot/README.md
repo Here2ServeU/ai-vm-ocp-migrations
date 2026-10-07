@@ -9,11 +9,10 @@ The Migration Copilot is an AI assistant that helps move virtual machines (VMs) 
 4. **Runs** the migration, but only after a named person approves it
 5. **Reports** progress
 
-You can use one of three AI "brains":
+You can use one of two AI "brains":
 
 | Provider | Model family | You need |
 | --- | --- | --- |
-| **IBM watsonx** | Granite, Llama and others | A watsonx / Orchestrate entitlement |
 | **Anthropic** | Claude | An API key from <https://console.anthropic.com> |
 | **OpenAI** | GPT | An API key from <https://platform.openai.com> |
 
@@ -29,8 +28,7 @@ You can use one of three AI "brains":
 - [Step 0: Install the basics](#step-0-install-the-basics)
 - [Path A: See the output with no AI (2 minutes)](#path-a-see-the-output-with-no-ai-2-minutes)
 - [Path B: Chat with Claude or GPT on your laptop (5 minutes)](#path-b-chat-with-claude-or-gpt-on-your-laptop-5-minutes)
-- [Path C: Run it in watsonx Orchestrate](#path-c-run-it-in-watsonx-orchestrate)
-- [Path D: Connect a real lab](#path-d-connect-a-real-lab)
+- [Path C: Connect a real lab](#path-c-connect-a-real-lab)
 - [Guardrails](#guardrails)
 - [Readiness rules](#readiness-rules)
 - [Troubleshooting](#troubleshooting)
@@ -49,7 +47,6 @@ You can use one of three AI "brains":
 | **Plan / Migration** | In MTV, a **Plan** lists which VMs to move and where. A **Migration** is one run of that plan |
 | **Wave** | A batch of VMs migrated together |
 | **Warm migration** | Copies data while the VM keeps running, so downtime is shorter |
-| **watsonx Orchestrate** | IBM's platform for hosting AI agents. It's the "production" home for this Copilot |
 | **Agent** | The AI assistant: a model, instructions and a set of tools it can call |
 | **Tool** | A Python function the agent can call, such as "list VMs" |
 | **LLM / model** | The AI that reads your question and decides which tools to call |
@@ -64,19 +61,17 @@ You can use one of three AI "brains":
 migration-copilot/
 ├── README.md                 ← this runbook
 ├── .env.example              ← template for your settings and secrets
-├── requirements.txt          ← Python libraries the tools need (uploaded to Orchestrate)
-├── requirements-local.txt    ← extra libraries for running on your laptop
+├── requirements.txt          ← Python libraries to install
 ├── demo_local.py             ← quick demo with no AI
 ├── chat_local.py             ← chat with the Copilot using Claude or GPT on your laptop
 ├── agents/
-│   └── migration_copilot.yaml ← the agent's "personality": model, rules, tool list
+│   └── migration_copilot.yaml ← the agent's "personality": rules and tool list
 ├── tools/
 │   ├── vcenter_tools.py      ← reads VMware and scores readiness
-│   └── openshift_tools.py    ← creates and runs MTV plans, checks progress
+│   ├── openshift_tools.py    ← creates and runs MTV plans, checks progress
+│   └── tool_spec.py          ← turns each tool function into a spec the AI can call
 ├── openshift/
 │   └── rbac.yaml             ← locked-down OpenShift account for the Copilot
-├── scripts/
-│   └── setup.sh              ← one command to load everything into Orchestrate
 └── docs/
     └── architecture.svg      ← diagram of how the pieces connect
 ```
@@ -87,14 +82,11 @@ address, MTV names, and your AI provider and API key.
 **How to use it:** Copy it to `.env` (`cp .env.example .env`) and fill in the values you need.
 For Paths A and B you only need the AI lines. **Never commit `.env` to git.** It holds secrets.
 
-### `requirements.txt` and `requirements-local.txt`
-**What they are:** Lists of Python libraries to install.
-- `requirements.txt` is what the tools need to run (`pyvmomi` for VMware, `kubernetes` for
-  OpenShift, `PyYAML`). Orchestrate installs these when you upload the tools.
-- `requirements-local.txt` adds what your laptop needs: the Orchestrate SDK, plus the
-  `anthropic` and `openai` libraries.
+### `requirements.txt`
+**What it is:** The Python libraries to install: `anthropic` and `openai` for the AI,
+`pyvmomi` for VMware, `kubernetes` for OpenShift, and `PyYAML`.
 
-**How to use them:** `pip install -r requirements-local.txt`
+**How to use it:** `pip install -r requirements.txt`
 
 ### `demo_local.py`
 **What it does:** Prints a readiness table for the sample "finance" VMs and the draft MTV
@@ -104,8 +96,8 @@ plan the Copilot would create. It doesn't use AI or need a network connection.
 
 ### `chat_local.py`
 **What it does:** Starts a chat in your terminal with the Copilot, using **Claude (Anthropic)**
-or **GPT (OpenAI)**. It uses the same tools and the same instructions as the real agent,
-without an Orchestrate server. When the AI calls a tool, you see a `[tool]` line.
+or **GPT (OpenAI)**. It loads the tools from `tools/` and the instructions from
+`agents/migration_copilot.yaml`. When the AI calls a tool, you see a `[tool]` line.
 **When to use it:** To rehearse the full conversation, or to compare Claude and GPT answers.
 **How:**
 ```bash
@@ -113,14 +105,14 @@ python chat_local.py --llm anthropic                  # uses ANTHROPIC_API_KEY
 python chat_local.py --llm openai                     # uses OPENAI_API_KEY
 python chat_local.py --llm openai --model gpt-4o      # pick a specific model
 ```
-It reads keys from `.env` automatically. Type `exit` to quit.
+It reads keys and lab settings from `.env` automatically. Type `exit` to quit.
 
 ### `agents/migration_copilot.yaml`
-**What it is:** The agent definition used by Orchestrate (and by `chat_local.py` for its instructions).
-- `llm:` sets which model to use. `setup.sh --llm` swaps this for you, so you don't edit it by hand.
+**What it is:** The agent definition that `chat_local.py` reads. The model is chosen with
+`--llm` and `--model` when you start the chat.
 - `instructions:` sets the rules the AI must follow, such as "assess before planning",
   "dry run first" and "only Emmanuel Naweji can approve a migration".
-- `tools:` lists which tools the agent may call.
+- `tools:` lists which tools the agent may call. Each must be a function in `tools/`.
 
 **How to use it:** Edit `instructions:` to change the Copilot's behavior or tone.
 
@@ -141,24 +133,12 @@ It reads keys from `.env` automatically. Type `exit` to quit.
 ### `openshift/rbac.yaml`
 **What it is:** OpenShift permissions for a service account called `migration-copilot`.
 It can only read and create MTV plans and migrations and read VMs. It can't delete anything.
-**How to use it:** `oc apply -f openshift/rbac.yaml` (Path D).
-
-### `scripts/setup.sh`
-**What it does:** Loads everything into your active watsonx Orchestrate environment:
-connections (credentials), your chosen AI model, both tool files and the agent.
-**How to use it:**
-```bash
-./scripts/setup.sh --demo                     # sample data, watsonx model
-./scripts/setup.sh --demo --llm anthropic     # sample data, Claude
-./scripts/setup.sh --demo --llm openai        # sample data, GPT
-./scripts/setup.sh --llm anthropic            # real vCenter/OpenShift, Claude
-```
-Leave out `--demo` only when you've filled in the vCenter and OpenShift values (Path D).
+**How to use it:** `oc apply -f openshift/rbac.yaml` (Path C).
 
 ### `docs/architecture.svg`
 A diagram of how the chat, agent, tools, vCenter and OpenShift fit together, and where each
-AI model runs. watsonx.ai stays inside your agency boundary. Anthropic and OpenAI are reached
-through Orchestrate's AI gateway and run outside it. Open it in a browser.
+AI model runs. Anthropic and OpenAI are called directly with your API key and run outside
+your agency boundary. Open it in a browser.
 
 ---
 
@@ -170,7 +150,7 @@ You need **Python 3.11 or newer** (check with `python3 --version`).
 cd migration-copilot
 python3 -m venv venv                 # create an isolated Python environment
 source venv/bin/activate             # turn it on (Windows: venv\Scripts\activate)
-pip install -r requirements-local.txt
+pip install -r requirements.txt
 cp .env.example .env                 # your personal settings file
 ```
 
@@ -194,10 +174,8 @@ VM            Readiness          Risk  Notes
 fin-web-01    Ready                 0  -
 fin-app-01    Ready                 0  -
 fin-web-02    Ready with prep      10  Remove or consolidate snapshots before migrating
-fin-db-01     Blocked              45  Uses a raw device mapping (RDM) disk; ...
+fin-db-01     Blocked              35  Uses a raw device mapping (RDM) disk; ...
 ```
-
-A `No credentials found for connections 'vcenter'` line is normal. It means you're in demo mode.
 
 ---
 
@@ -230,39 +208,7 @@ Each question costs a small amount on your Anthropic or OpenAI account.
 
 ---
 
-## Path C: Run it in watsonx Orchestrate
-
-This is the "real" home for the agent, with a web chat UI and credentials stored safely.
-
-**You need:** Docker (via Rancher Desktop or Colima), about **16 GB RAM and 8 CPU cores** free,
-and your watsonx Orchestrate entitlement settings in `.env`. See IBM's ADK docs for those values.
-
-```bash
-set -a; source .env; set +a              # load your settings into this terminal
-orchestrate server start -e .env         # start Orchestrate Developer Edition (first run takes a while)
-orchestrate env activate local
-
-# Pick ONE:
-./scripts/setup.sh --demo                     # IBM watsonx model (from agents/migration_copilot.yaml)
-./scripts/setup.sh --demo --llm anthropic     # Claude, uses ANTHROPIC_API_KEY
-./scripts/setup.sh --demo --llm openai        # GPT,    uses OPENAI_API_KEY
-
-orchestrate chat start                   # opens the chat UI in your browser
-```
-
-**How the model choice works:**
-- `watsonx` uses the `llm:` line in `agents/migration_copilot.yaml`. Run
-  `orchestrate models list` to see which models your environment has, then edit that line.
-- `anthropic` / `openai`: the script saves your API key in an Orchestrate connection
-  (`anthropic_creds` or `openai_creds`), registers the model with `orchestrate models add`,
-  and imports the agent with `llm: virtual-model/<provider>/<model>`. Your checked-in YAML file
-  isn't changed.
-
-To switch providers later, run `setup.sh` again with a different `--llm`.
-
----
-
-## Path D: Connect a real lab
+## Path C: Connect a real lab
 
 Only do this in a **test lab** first. Start with 5–10 throwaway VMs.
 
@@ -280,16 +226,13 @@ Only do this in a **test lab** first. Start with 5–10 throwaway VMs.
 3. **Create a read-only vCenter user** for discovery (ask your VMware admin).
 4. **Fill in `.env`**: `VCENTER_URL`, `VCENTER_USER`, `VCENTER_PASSWORD`, `OCP_API_URL`,
    `OCP_TOKEN` (from step 2), `MTV_SOURCE_PROVIDER`, `MTV_NETWORK_MAP`, `MTV_STORAGE_MAP`.
-5. **Load and run**
+   Optional: `VCENTER_CA_CERT` and `OCP_CA_CERT` take paths to CA certificate files.
+5. **Start the chat**
    ```bash
-   set -a; source .env; set +a
-   ./scripts/setup.sh --llm anthropic      # or openai / watsonx
-   orchestrate chat start
+   python chat_local.py --llm anthropic     # or --llm openai
    ```
-   Tool replies now say `"mode": "live"` instead of `"demo"`.
-
-> `chat_local.py` always runs in demo mode, because real credentials come from Orchestrate
-> connections. Use Orchestrate (Path C/D) for live systems.
+   Tool replies now say `"mode": "live"` instead of `"demo"`. Leave `VCENTER_URL` and
+   `OCP_API_URL` empty to go back to demo mode.
 
 ---
 
@@ -298,16 +241,15 @@ Only do this in a **test lab** first. Start with 5–10 throwaway VMs.
 - Discovery is **read-only**. Plans are **dry runs** until you say otherwise.
 - **Only Emmanuel Naweji can approve a migration.** `start_migration` refuses to run without
   `approval_confirmed=true` and an approver on the authorized list. To change the list, set
-  `MIGRATION_APPROVERS` in `.env` (comma-separated full names) and rerun `setup.sh`, or edit
+  `MIGRATION_APPROVERS` in `.env` (comma-separated full names) and restart the chat, or edit
   `AUTHORIZED_APPROVERS` in `tools/openshift_tools.py`. Refused attempts are logged as
   `AUDIT migration_rejected`. The approver, time and change ticket are written onto the MTV Migration object and logged
   as an `AUDIT` line. Send tool logs to your SIEM.
-- Credentials (vCenter, OpenShift, Anthropic, OpenAI) live in Orchestrate connections or
-  your local `.env`, **never in code**.
+- Credentials (vCenter, OpenShift, Anthropic, OpenAI) live in your local `.env`, **never in code**.
 - The OpenShift service account can only create MTV plans and migrations and read VMs.
 - **Choosing Anthropic or OpenAI sends data outside your boundary.** Prompts and tool results
   (VM names, sizes, OS, plan details) go to that provider. Check your agency's data policy
-  first, or use watsonx.ai to keep everything in the boundary.
+  first.
 - These rules are enforced in code, not only in the AI's instructions, so they hold whichever model you choose.
 
 ---
@@ -333,14 +275,11 @@ documentation. These rules are a starting point, not a certification.
 | Problem | Fix |
 | --- | --- |
 | `command not found: python` | Use `python3`, or turn on the venv: `source venv/bin/activate` |
-| `ModuleNotFoundError: ibm_watsonx_orchestrate` (or `anthropic` / `openai`) | `pip install -r requirements-local.txt` with the venv on |
+| `ModuleNotFoundError` (for example `anthropic` or `openai`) | `pip install -r requirements.txt` with the venv on |
 | `ANTHROPIC_API_KEY is not set` | Add it to `.env`, or `export ANTHROPIC_API_KEY=...` |
 | `401` / `authentication_error` | The API key is wrong or revoked. Create a new one |
 | `model not found` | Change `ANTHROPIC_MODEL` / `OPENAI_MODEL` to a model your account can use |
-| `No credentials found for connections 'vcenter'` | Normal in demo mode |
-| `setup.sh: set VCENTER_URL` | You left out `--demo` but didn't fill in lab settings. Add `--demo`, or run `set -a; source .env; set +a` |
-| `Permission denied: ./scripts/setup.sh` | `chmod +x scripts/setup.sh` |
-| Orchestrate server won't start | Check Docker is running and has at least 16 GB RAM |
+| Live mode when you wanted demo mode | Empty `VCENTER_URL` and `OCP_API_URL` in `.env` |
 | Agent won't start a migration | Working as designed. Emmanuel Naweji (or someone in `MIGRATION_APPROVERS`) must approve by name |
 
 ---
@@ -349,4 +288,4 @@ documentation. These rules are a starting point, not a certification.
 
 - Add an inventory/CMDB tool (owner, app, environment) to group waves by application.
 - Add a report tool that writes a daily wave summary for leadership.
-- Add watsonx.governance to track the model's decisions.
+- Host the Copilot behind a web chat page so people don't need a terminal.

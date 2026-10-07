@@ -1,3 +1,6 @@
+# Python libraries for the tools and for chat_local.py.
+anthropic
+openai
 pyvmomi>=8.0
 kubernetes>=29.0
 PyYAML>=6.0

@@ -1,4 +1,4 @@
-"""Rehearse the demo on your laptop, no Orchestrate or clusters needed.
+"""Rehearse the demo on your laptop, no AI model or clusters needed.
 Run:  python demo_local.py
 """
 

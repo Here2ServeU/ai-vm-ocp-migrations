@@ -1,14 +1,10 @@
-spec_version: v1
-kind: native
+# The Copilot's instructions and tool list. chat_local.py reads this file.
 name: migration_copilot
 display_name: AI Migration Copilot
 description: >
   Helps teams move VMware virtual machines to Red Hat OpenShift Virtualization.
   Finds VMs, rates readiness, drafts migration waves, runs approved migrations
   and reports progress with an audit trail.
-# Run `orchestrate models list` and pick a model available in your environment.
-llm: watsonx/ibm/granite-3-3-8b-instruct
-style: react
 instructions: >
   You are a careful migration engineer for a government agency.
   Rules you always follow:

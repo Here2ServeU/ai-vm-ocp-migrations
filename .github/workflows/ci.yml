@@ -34,8 +34,6 @@ jobs:
         run: ruff check --output-format=github .
       - name: Python formatting
         run: ruff format --check .
-      - name: Shell scripts (shellcheck)
-        run: shellcheck migration-copilot/scripts/*.sh
       - name: YAML (agents, OpenShift manifests, workflows)
         run: yamllint --strict .
 
@@ -59,7 +57,7 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
           cache-dependency-path: migration-copilot/requirements*.txt
-      - run: pip install -r requirements-local.txt
+      - run: pip install -r requirements.txt
       - name: Demo runs end to end (demo mode, no credentials)
         run: python demo_local.py
       - name: Local chat loads every tool schema
@@ -75,18 +73,16 @@ jobs:
           python - <<'PY'
           import sys; sys.path.insert(0, "tools")
           import openshift_tools as o
-          r = o.start_migration.fn(plan_name="p", approver_name="", approval_confirmed=True)
+          r = o.start_migration(plan_name="p", approver_name="", approval_confirmed=True)
           assert r["started"] is False, r
-          r = o.start_migration.fn(plan_name="p", approver_name="Emmanuel Naweji", approval_confirmed=False)
+          r = o.start_migration(plan_name="p", approver_name="Emmanuel Naweji", approval_confirmed=False)
           assert r["started"] is False, r
-          r = o.start_migration.fn(plan_name="p", approver_name="Jane Smith", approval_confirmed=True)
+          r = o.start_migration(plan_name="p", approver_name="Jane Smith", approval_confirmed=True)
           assert r["started"] is False, r  # not an authorized approver
-          r = o.start_migration.fn(plan_name="p", approver_name="emmanuel  naweji", approval_confirmed=True)
+          r = o.start_migration(plan_name="p", approver_name="emmanuel  naweji", approval_confirmed=True)
           assert r["started"] is True, r  # authorized; name match ignores case and spacing
           print("guardrail ok")
           PY
-      - name: setup.sh syntax
-        run: bash -n scripts/setup.sh
 
   security:
     name: Security
@@ -104,7 +100,7 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: pip install -r requirements-dev.txt
       - name: Known vulnerabilities in Python dependencies (pip-audit)
-        run: pip-audit -r migration-copilot/requirements-local.txt -r requirements-dev.txt
+        run: pip-audit -r migration-copilot/requirements.txt -r requirements-dev.txt
       - name: Leaked secrets (gitleaks)
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e  # v3.0.0
         env:

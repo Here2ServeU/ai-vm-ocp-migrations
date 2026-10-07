@@ -1,5 +1,5 @@
 """Chat with the Migration Copilot on your laptop using Anthropic (Claude) or OpenAI (GPT).
-No Orchestrate server needed. Uses the same tools and instructions as the real agent.
+Uses the tools in tools/ and the instructions in agents/migration_copilot.yaml.
 
 Run:  python chat_local.py --llm anthropic     (needs ANTHROPIC_API_KEY)
       python chat_local.py --llm openai        (needs OPENAI_API_KEY)
@@ -15,23 +15,13 @@ import sys
 import yaml
 
 sys.path.insert(0, "tools")
-logging.disable(logging.ERROR)  # hide "no connection found" noise; demo mode is expected
+logging.disable(logging.ERROR)  # hide "not set; demo mode" noise; demo mode is expected
 import openshift_tools as ocp  # noqa: E402
 import vcenter_tools as vc  # noqa: E402
 
 DEFAULT_MODELS = {"anthropic": "claude-sonnet-5", "openai": "gpt-4.1"}
 AGENT = yaml.safe_load(open("agents/migration_copilot.yaml"))
-TOOLS = {
-    t.__tool_spec__.name: t
-    for t in (
-        vc.discover_vms,
-        vc.readiness_summary,
-        ocp.create_migration_plan,
-        ocp.start_migration,
-        ocp.migration_status,
-        ocp.list_openshift_vms,
-    )
-}
+TOOLS = {name: getattr(vc, name, None) or getattr(ocp, name) for name in AGENT["tools"]}
 
 
 def load_dotenv(path=".env"):
@@ -43,25 +33,15 @@ def load_dotenv(path=".env"):
                 os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 
 
-def _clean(schema):
-    """Drop Orchestrate-only keys so the schema is plain JSON Schema."""
-    if isinstance(schema, dict):
-        return {k: _clean(v) for k, v in schema.items() if k not in ("wrap_data", "title")}
-    if isinstance(schema, list):
-        return [_clean(v) for v in schema]
-    return schema
-
-
 def tool_specs():
     for name, t in TOOLS.items():
-        spec = t.__tool_spec__
-        yield name, spec.description, _clean(spec.input_schema.model_dump(exclude_none=True, mode="json"))
+        yield name, t.spec["description"], t.spec["input_schema"]
 
 
 def run_tool(name, args):
     print(f"  [tool] {name}({json.dumps(args)})")
     try:
-        return json.dumps(TOOLS[name].fn(**args), default=str)
+        return json.dumps(TOOLS[name](**args), default=str)
     except Exception as exc:  # let the model see the error and recover
         return json.dumps({"error": str(exc)})
 
