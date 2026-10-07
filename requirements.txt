@@ -3,4 +3,4 @@ anthropic
 openai
 pyvmomi>=8.0
 kubernetes>=29.0
-PyYAML>=6.0
+PyYAML>=6.0.3
